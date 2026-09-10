@@ -232,7 +232,12 @@ class _CuaDriverSession:
                 else (_driver._resolve_mcp_invocation(driver_cmd), _cb.cua_driver_child_env()))
             _t_manifest = _time.monotonic()
             # Telemetry policy first (default: disabled), then strip Hermes secrets.
-            params = StdioServerParameters(command=command, args=args, env=_sanitize_subprocess_env(child_env))
+            params = StdioServerParameters(
+                command=command, args=args, env=_sanitize_subprocess_env(child_env),
+                # Explicitly isolate cua-driver stdio child in its own process group so its pgid
+                # is always distinct from the gateway's. This allows killpg to be used safely
+                # and unconditionally during cleanup, ensuring grandchildren are fully reaped.
+                start_new_session=True)
             async with stdio_client(params) as (read, write):
                 self._startup_phase = "mcp-initialize"
                 async with ClientSession(read, write) as session:

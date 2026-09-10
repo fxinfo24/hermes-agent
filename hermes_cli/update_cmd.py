@@ -1288,6 +1288,12 @@ def _cmd_update_impl(args, gateway_mode: bool):
     desktop_dir = _m().PROJECT_ROOT / "apps" / "desktop"
     had_desktop_app_before_update = _desktop_app_present(desktop_dir)
 
+    # Clear stale bytecode FIRST — before any git operations. During retry loops (hours of fetch
+    # failures), running gateway sessions can import stale .pyc files and crash with ImportError.
+    # This sweep catches bytecode from the PREVIOUS checkout state so the next import sees fresh source.
+    # See #<BUG_ID> for the stale-bytecode crash during interrupted update retries.
+    _m()._clear_bytecode_cache(_m().PROJECT_ROOT)
+
     use_zip_update, git_cmd, is_fork = _prepare_git_command()
 
     if use_zip_update:

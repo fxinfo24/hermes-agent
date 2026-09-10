@@ -219,7 +219,12 @@ class MCPServerTransportMixin:
         server_params = _core.StdioServerParameters(
             command=command, args=args, env=safe_env or None, cwd=config.get("cwd"),
             # Windows pipes can split non-UTF-8 bytes at chunk boundaries; substitute, don't raise.
-            encoding_error_handler="replace")
+            encoding_error_handler="replace",
+            # Explicitly isolate MCP stdio children in their own process group so their pgid
+            # is always distinct from the gateway's. This allows killpg to be used safely
+            # and unconditionally during cleanup, ensuring grandchildren are fully reaped.
+            # See #<BUG_ID> for the pgid-collision warning when desktop-commander shares gateway pgid.
+            start_new_session=True)
         # Reap orphans of prior attempts first (else retries pile up zombie pairs); unscoped on purpose;
         # off-loop because the reaper blocks up to 2s.
         await asyncio.to_thread(_lifecycle._kill_orphaned_mcp_children)
